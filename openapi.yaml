@@ -1,0 +1,100 @@
+openapi: 3.1.0
+info:
+  title: Restaurant Waitlist Manager API
+  version: 0.1.0
+  description: Contract for the MVP restaurant waitlist service. All data is scoped to the authenticated restaurant in production.
+servers:
+  - url: /api/v1
+paths:
+  /auth/login:
+    post:
+      summary: Log in a restaurant staff member
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+      responses: { '200': { description: Tokens and current user, content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' } }
+  /auth/refresh:
+    post:
+      summary: Refresh an access token
+      responses: { '200': { description: Refreshed tokens, content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } } } }
+  /auth/logout:
+    post: { summary: Log out, responses: { '204': { description: Logged out } } }
+  /auth/me:
+    get: { summary: Get the current mock user, responses: { '200': { description: User, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } } } }
+  /waitlist:
+    get: { summary: List waitlist entries, responses: { '200': { description: Entries, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/WaitlistEntry' } } } } } } }
+    post:
+      summary: Add a party to the waitlist
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistCreate' } } } }
+      responses: { '201': { description: Created entry, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistEntry' } } } }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /waitlist/{waitlist_id}:
+    parameters: [{ $ref: '#/components/parameters/WaitlistId' }]
+    get: { summary: Get an entry, responses: { '200': { description: Entry, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistEntry' } } } }, '404': { $ref: '#/components/responses/NotFound' } } }
+    patch:
+      summary: Update customer details or preference
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistUpdate' } } } }
+      responses: { '200': { description: Updated entry, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistEntry' } } } }, '404': { $ref: '#/components/responses/NotFound' } } }
+    delete: { summary: Cancel an entry, responses: { '204': { description: Cancelled }, '404': { $ref: '#/components/responses/NotFound' } } }
+  /waitlist/{waitlist_id}/notify:
+    parameters: [{ $ref: '#/components/parameters/WaitlistId' }]
+    post: { summary: Notify a waiting party, responses: { '200': { description: Notified entry, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistEntry' } } } }, '409': { $ref: '#/components/responses/InvalidState' } } }
+  /waitlist/{waitlist_id}/confirm:
+    parameters: [{ $ref: '#/components/parameters/WaitlistId' }]
+    post: { summary: Mark a notified party ready, responses: { '200': { description: Confirmed entry, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistEntry' } } } }, '409': { $ref: '#/components/responses/InvalidState' } } }
+  /waitlist/{waitlist_id}/seat:
+    parameters: [{ $ref: '#/components/parameters/WaitlistId' }]
+    post:
+      summary: Seat a confirmed party at an available table
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [table_id], properties: { table_id: { type: string } } } } } }
+      responses: { '200': { description: Seated entry, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistEntry' } } } }, '409': { $ref: '#/components/responses/InvalidState' } } }
+  /waitlist/{waitlist_id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/WaitlistId' }]
+    post: { summary: Cancel a waiting entry, responses: { '200': { description: Cancelled entry, content: { application/json: { schema: { $ref: '#/components/schemas/WaitlistEntry' } } } }, '409': { $ref: '#/components/responses/InvalidState' } } }
+  /tables:
+    get: { summary: List tables, responses: { '200': { description: Tables, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Table' } } } } } } }
+    post:
+      summary: Create a table
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TableCreate' } } } }
+      responses: { '201': { description: Created table, content: { application/json: { schema: { $ref: '#/components/schemas/Table' } } } } }
+  /tables/{table_id}:
+    parameters: [{ name: table_id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Get a table, responses: { '200': { description: Table, content: { application/json: { schema: { $ref: '#/components/schemas/Table' } } } }, '404': { $ref: '#/components/responses/NotFound' } } }
+    patch:
+      summary: Update table attributes or status
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TableUpdate' } } } }
+      responses: { '200': { description: Updated table, content: { application/json: { schema: { $ref: '#/components/schemas/Table' } } } } }
+  /reports/waitlist:
+    get: { summary: Waitlist report, responses: { '200': { description: Waitlist metrics } } }
+  /reports/tables:
+    get: { summary: Table report, responses: { '200': { description: Table metrics } } }
+  /reports/operations:
+    get: { summary: Operations report, responses: { '200': { description: Operations metrics } } }
+  /ai/wait-estimate/{waitlist_id}:
+    parameters: [{ $ref: '#/components/parameters/WaitlistId' }]
+    get: { summary: Deterministic wait estimate with confidence, responses: { '200': { description: Estimate } } }
+  /ai/table-recommendations:
+    get: { summary: Advisory table/customer matches, responses: { '200': { description: Recommendations } } }
+  /ai/insights:
+    get: { summary: Operational insight, responses: { '200': { description: Insight } } }
+  /ai/assistant:
+    post:
+      summary: Ask the mock operational assistant
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [question], properties: { question: { type: string, minLength: 1 } } } } } }
+      responses: { '200': { description: Answer } }
+components:
+  parameters:
+    WaitlistId: { name: waitlist_id, in: path, required: true, schema: { type: string } }
+  responses:
+    NotFound: { description: Resource not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    Unauthorized: { description: Invalid credentials, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    InvalidState: { description: Invalid status transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    ValidationError: { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  schemas:
+    LoginRequest: { type: object, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, minLength: 1 } } }
+    User: { type: object, required: [id, name, email, role, restaurant_id], properties: { id: { type: string }, name: { type: string }, email: { type: string }, role: { type: string, enum: [OWNER, MANAGER, HOST] }, restaurant_id: { type: string } } }
+    AuthResponse: { type: object, required: [access_token, refresh_token, token_type, user], properties: { access_token: { type: string }, refresh_token: { type: string }, token_type: { type: string, example: bearer }, user: { $ref: '#/components/schemas/User' } } }
+    WaitlistCreate: { type: object, required: [customer_name, phone_number, party_size], properties: { customer_name: { type: string, minLength: 1 }, phone_number: { type: string, minLength: 1 }, email: { type: string, format: email }, party_size: { type: integer, minimum: 1 }, seating_preference: { type: string, enum: [ANY, INDOOR, OUTDOOR, BAR, BOOTH, WINDOW], default: ANY }, special_requirements: { type: string }, notes: { type: string } } }
+    WaitlistUpdate: { type: object, properties: { customer_name: { type: string, minLength: 1 }, phone_number: { type: string, minLength: 1 }, email: { type: string, format: email }, party_size: { type: integer, minimum: 1 }, seating_preference: { type: string, enum: [ANY, INDOOR, OUTDOOR, BAR, BOOTH, WINDOW] }, special_requirements: { type: string }, notes: { type: string } } }
+    WaitlistEntry: { type: object, required: [id, reference, customer_name, phone_number, party_size, seating_preference, joined_at, estimated_wait_minutes, status], properties: { id: { type: string }, reference: { type: string, example: WL-1042 }, customer_name: { type: string }, phone_number: { type: string }, email: { type: string }, party_size: { type: integer }, seating_preference: { type: string }, special_requirements: { type: string }, notes: { type: string }, joined_at: { type: string, format: date-time }, estimated_wait_minutes: { type: integer }, status: { type: string, enum: [WAITING, NOTIFIED, CONFIRMED, SEATED, CANCELLED, NO_SHOW, EXPIRED] }, table_id: { type: string } } }
+    TableCreate: { type: object, required: [name, minimum_capacity, maximum_capacity, location], properties: { name: { type: string, minLength: 1 }, minimum_capacity: { type: integer, minimum: 1 }, maximum_capacity: { type: integer, minimum: 1 }, location: { type: string, minLength: 1 }, status: { type: string, enum: [AVAILABLE, OCCUPIED, RESERVED, CLEANING, OUT_OF_SERVICE], default: AVAILABLE } } }
+    TableUpdate: { type: object, properties: { name: { type: string, minLength: 1 }, minimum_capacity: { type: integer, minimum: 1 }, maximum_capacity: { type: integer, minimum: 1 }, location: { type: string, minLength: 1 }, status: { type: string, enum: [AVAILABLE, OCCUPIED, RESERVED, CLEANING, OUT_OF_SERVICE] } } }
+    Table: { type: object, required: [id, name, minimum_capacity, maximum_capacity, location, status, active], properties: { id: { type: string }, name: { type: string }, minimum_capacity: { type: integer }, maximum_capacity: { type: integer }, location: { type: string }, status: { type: string }, active: { type: boolean } } }
+    ErrorResponse: { type: object, required: [error], properties: { error: { type: object, required: [code, message], properties: { code: { type: string }, message: { type: string } } } } }
